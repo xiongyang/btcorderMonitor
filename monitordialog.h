@@ -2,6 +2,7 @@
 #define MONITORDIALOG_H
 
 #include <QDialog>
+#include <QAbstractSocket>
 
 QT_BEGIN_NAMESPACE
 class QTcpSocket;
@@ -21,11 +22,17 @@ public:
 public slots:
     void onClickConnect();
     void onClickSend();
+    void onClickReset();
+
+    void onClientConnected();
+    void onClientDisconnect();
+    void onClientError(QAbstractSocket::SocketError);
 
 private:
     QLineEdit* addressEdit;
     QLineEdit* messageEdit;
     QLabel* statusLable;
+
 
     QTcpSocket* clientConnection;
 };

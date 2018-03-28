@@ -6,17 +6,24 @@
 #include <QFormLayout>
 #include <QVBoxLayout>
 #include <QDialogButtonBox>
+#include <QHostAddress>
+
 #include <QLabel>
 
 MonitorDialog::MonitorDialog(QWidget *parent)
     : QDialog(parent)
-    , addressEdit(new QLineEdit("127.0.0.1:47777"))
-    , messageEdit(new QLineEdit("hello"))
+    , addressEdit(new QLineEdit("47.52.44.14:47100"))
+    , messageEdit(new QLineEdit("Leg=btcusdt@huobi#LegAWeight=bitfinex@1#LegAWeight=okex@1#LegAWeight=bian@1#LegAWeight=gdax@1#refMaWeight=0.005#legMaWeight=0.0001#pricePrecis=100#pplPrecis=10000#stopEnter=0#stopExit=0#feeRate=0.0004#enterSignal=25#resendFactor=0.0003#enterSignalFactor=1#spreadBP=0#spreadResendBp=15"))
     , clientConnection(new QTcpSocket)
     , statusLable(new QLabel)
 {
 
     QFormLayout *formLayout = new QFormLayout;
+
+    connect(clientConnection, &QTcpSocket::connected, this, &MonitorDialog::onClientConnected);
+    connect(clientConnection, &QTcpSocket::disconnected, this, &MonitorDialog::onClientDisconnect);
+    connect(clientConnection, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this, &MonitorDialog::onClientError);
+
 
 
     formLayout->addRow("address",addressEdit);
@@ -40,8 +47,12 @@ MonitorDialog::MonitorDialog(QWidget *parent)
     QPushButton* sendButton = new QPushButton("Send");
     connect(sendButton, &QAbstractButton::clicked, this, &MonitorDialog::onClickSend);
 
+    QPushButton* resetButton = new QPushButton("Reset");
+    connect(resetButton, &QAbstractButton::clicked, this, &MonitorDialog::onClickReset);
+
     buttonBox->addButton(connectButton, QDialogButtonBox::ActionRole);
     buttonBox->addButton(sendButton, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(resetButton, QDialogButtonBox::ActionRole);
     buttonBox->addButton(quitButton, QDialogButtonBox::RejectRole);
 
     mainLayout->addWidget(buttonBox);
@@ -52,6 +63,37 @@ MonitorDialog::~MonitorDialog()
 {
 
 }
+void MonitorDialog::onClickReset()
+{
+    clientConnection->close();
+    QString peer = clientConnection->peerAddress().toString();
+    peer += ":" + QString::number( clientConnection->peerPort());
+    statusLable->setText("Connection Close " + peer);
+}
+
+void MonitorDialog::onClientConnected()
+{
+    QString peer = clientConnection->peerAddress().toString();
+    peer += ":" + QString::number( clientConnection->peerPort());
+
+    statusLable->setText("Connection Connected to " + peer);
+}
+
+void MonitorDialog::onClientDisconnect()
+{
+    QString peer = clientConnection->peerAddress().toString();
+    peer += ":" + QString::number( clientConnection->peerPort());
+
+    statusLable->setText("Connection Close to " + peer);
+}
+
+void MonitorDialog::onClientError(QAbstractSocket::SocketError err)
+{
+    qDebug() << err;
+    statusLable->setText("Connection Error ");
+}
+
+
 
 void MonitorDialog::onClickConnect()
 {
