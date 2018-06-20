@@ -10,13 +10,15 @@
 
 #include <QLabel>
 
-MonitorDialog::MonitorDialog(QWidget *parent)
+MonitorDialog::MonitorDialog(QWidget *parent, QString address, QString config )
     : QDialog(parent)
-    , addressEdit(new QLineEdit("47.52.44.14:47100"))
-    , messageEdit(new QLineEdit("Leg=btcusdt@huobi#LegAWeight=bitfinex@1#LegAWeight=okex@1#LegAWeight=bian@1#LegAWeight=gdax@1#refMaWeight=0.005#legMaWeight=0.0001#pricePrecis=100#pplPrecis=10000#stopEnter=0#stopExit=0#feeRate=0.0004#enterSignal=25#resendFactor=0.0003#enterSignalFactor=1#spreadBP=0#spreadResendBp=15"))
+
     , clientConnection(new QTcpSocket)
     , statusLable(new QLabel)
 {
+    addressEdit = new QLineEdit(address);
+    messageEdit = new QLineEdit(config);
+
 
     QFormLayout *formLayout = new QFormLayout;
 

@@ -16,7 +16,7 @@ class MonitorDialog : public QDialog
     Q_OBJECT
 
 public:
-    MonitorDialog(QWidget *parent = 0);
+    MonitorDialog(QWidget *parent = 0, QString address = "", QString config = "");
     ~MonitorDialog();
 
 public slots:
