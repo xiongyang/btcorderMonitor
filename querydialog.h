@@ -26,7 +26,7 @@ public:
 public slots:
     void onClickQueryTrade();
     void onClickQueryOrder();
-
+    void onClickQueryAccount();
 
 //    void onClientConnected();
 //    void onClientDisconnect();
@@ -37,12 +37,14 @@ private:
     void getTradeRequest(const std::map<QString, QString>& params);
     void handleOrder(QNetworkReply* orderquery);
     void handleTrade(QNetworkReply* orderquery);
+    void handleAccount(QNetworkReply* r);
 
 
 private:
     QLineEdit* querySymbol;
     QLineEdit* accessKey;
     QLineEdit* passKey;
+    QLineEdit* privatePem;
     QDateTimeEdit* dateStart;
     QDateTimeEdit* dateEnd;
 
