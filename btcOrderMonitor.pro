@@ -44,9 +44,13 @@ SOURCES += \
         main.cpp \
         monitordialog.cpp \
     querydialog.cpp \
-    logger.cpp
+    logger.cpp \
+    bitmexquerydialog.cpp \
+    util.cpp
 
 HEADERS += \
         monitordialog.h \
     querydialog.h \
-    logger.h
+    logger.h \
+    bitmexquerydialog.h \
+    util.h

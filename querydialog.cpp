@@ -17,25 +17,32 @@
 #include <QJsonArray>
 
 #include "logger.h"
+#include "util.h"
 
-QueryDialog::QueryDialog(QWidget *parent)
+QueryDialog::QueryDialog(QWidget *parent, QString key ,  QString sec , QString symbol )
     : QDialog(parent)
 {
+    this->setWindowTitle("huobi");
+
     dateStart = new QDateTimeEdit(QDate::currentDate());
     dateEnd = new QDateTimeEdit(QDate::currentDate());
     qnam = new QNetworkAccessManager;
 
-    //    dateStart->setCalendarPopup(true);
-    //    dateEnd->setCalendarPopup(true);
+    querySymbol = new QLineEdit(symbol,this);
 
-    querySymbol = new QLineEdit("ethusdt",this);
+    accountId = new QLineEdit("", this);
 
 
-    accessKey = new QLineEdit("8fed21c0-7bd73df5-247decad-ab3e4", this);
-    passKey = new QLineEdit("2d5afaab-51a4d408-8a10ed5c-16879", this);
+    accessKey = new QLineEdit(key, this);
+    passKey = new QLineEdit(sec, this);
 
     statusLable = new QLabel(this);
+    statusLable->setWordWrap(true);
+    statusLable->setTextInteractionFlags(Qt::TextSelectableByMouse);
+
     QFormLayout *formLayout = new QFormLayout;
+
+
 
     //    connect(clientConnection, &QTcpSocket::connected, this, &MonitorDialog::onClientConnected);
     //    connect(clientConnection, &QTcpSocket::disconnected, this, &MonitorDialog::onClientDisconnect);
@@ -46,7 +53,9 @@ QueryDialog::QueryDialog(QWidget *parent)
     formLayout->addRow("passKey",passKey);
 
     formLayout->addRow("symbol",querySymbol);
+    formLayout->addRow("accountId",accountId);
     formLayout->addRow("start",dateStart);
+
     formLayout->addRow("end",dateEnd);
     formLayout->addRow("status",statusLable);
 
@@ -68,9 +77,16 @@ QueryDialog::QueryDialog(QWidget *parent)
     connect(tradeButton, &QAbstractButton::clicked, this, &QueryDialog::onClickQueryTrade);
 
 
+    QPushButton* accountButton = new QPushButton("AccountID");
+    connect(accountButton, &QAbstractButton::clicked, this, &QueryDialog::onClickQueryAccount);
+
+    QPushButton* balanceButton = new QPushButton("Balance");
+    connect(balanceButton, &QAbstractButton::clicked, this, &QueryDialog::onClickQueryBalance);
 
     buttonBox->addButton(orderButton, QDialogButtonBox::ActionRole);
     buttonBox->addButton(tradeButton, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(accountButton, QDialogButtonBox::ActionRole);
+    buttonBox->addButton(balanceButton, QDialogButtonBox::ActionRole);
     buttonBox->addButton(quitButton, QDialogButtonBox::RejectRole);
 
     mainLayout->addWidget(buttonBox);
@@ -89,7 +105,7 @@ void QueryDialog::onClickQueryTrade()
     para["symbol"] = querySymbol->text();
     para["start-date"] = dateStart->date().toString("yyyy-MM-dd");
     para["end-date"] = dateEnd->date().toString("yyyy-MM-dd");
-    para["states"] = "filled";
+    //para["states"] = "filled";
     para["size"] = "10";
 
     QString query("/v1/order/matchresults");
@@ -110,31 +126,45 @@ void QueryDialog::onClickQueryOrder()
     auto reply = getRequest(query,para);
     connect(reply, &QNetworkReply::finished, [=](){handleOrder(reply);});
 }
-const std::string currentDateTime()
+
+void QueryDialog::onClickQueryAccount()
 {
-    time_t     now = time(0);
-    struct tm  tstruct;
-    char       buf[80];
-    tstruct = *gmtime(&now);
-    // Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
-    // for more information about date/time format
-
-    //    2018-01-06T14%3A52%3A59
-    strftime(buf, sizeof(buf), "%Y-%m-%dT%H%%3A%M%%3A%S", &tstruct);
-
-    return buf;
+    auto reply = getRequest("/v1/account/accounts", std::map<QString,QString>());
+    connect(reply,  &QNetworkReply::finished, [=](){handleAccount(reply);} );
 }
+
+void QueryDialog::onClickQueryBalance()
+{
+    char buf[256];
+    std::string id = accountId->text().toStdString();
+    if(!id.empty())
+    {
+
+        sprintf(buf, "/v1/account/accounts/%s/balance", id.c_str());
+        QString url(buf);
+        auto reply = getRequest(url,std::map<QString,QString>());
+        connect(reply,  &QNetworkReply::finished, [=](){handleBalance(reply);} );
+    }
+    else
+    {
+        for(auto each : accountIDs )
+        {
+            sprintf(buf, "/v1/account/accounts/%d/balance", each);
+            QString url(buf);
+            auto reply = getRequest(url,std::map<QString,QString>());
+            connect(reply,  &QNetworkReply::finished, [=](){handleBalance(reply);} );
+        }
+
+    }
+
+}
+
 
 QNetworkReply* QueryDialog::getRequest(const QString &apimethod, const std::map<QString, QString>& params)
 {
     QString apiType = "GET\n";
 
     std::map<QString, QString> ps(params);
-
-  //  for(auto& each : params)
-  //  {
-      //  qDebug() << each.first << "  " << each.second;
-   // }
 
     ps["AccessKeyId"] = accessKey->text().trimmed();
     ps["SignatureMethod"] = "HmacSHA256";
@@ -177,21 +207,6 @@ QNetworkReply* QueryDialog::getRequest(const QString &apimethod, const std::map<
     return reply;
 }
 
-QJsonObject getJson(QByteArray  reply)
-{
-    QJsonParseError jsonError;
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(reply, &jsonError);
-    if (jsonError.error != QJsonParseError::NoError)
-    {
-        qDebug() << "Error Parse Reply from " << reply
-                 << " Error " << jsonError.errorString();
-        return QJsonObject();
-    }
-    else
-    {
-        return std::move(jsonDoc.object());
-    }
-}
 
 void QueryDialog::handleOrder(QNetworkReply *r)
 {
@@ -200,46 +215,48 @@ void QueryDialog::handleOrder(QNetworkReply *r)
 
 void QueryDialog::handleTrade(QNetworkReply *r)
 {
-    QJsonObject json =  getJson(r->readAll());
+    QByteArray data = r->readAll();
+  //  Logger << "Handle Trade " << data.toStdString();
+    QJsonObject json =  getJson(data);
     // if(json[""])
-   // qDebug() <<json;
+    // qDebug() <<json;
     if(json["status"].toString() == "ok")
     {
 
         QJsonArray a = json["data"].toArray();
         for(int i = 0; i != a.size(); ++ i)
         {
-              QJsonObject trade = a[i].toObject();
-               int id  = trade["id"].toInt();
-               if(id != preLastTradeId)
-               {
-                  uint64_t time =  trade["created-at"].toVariant().toLongLong();
-                  uint64_t time_s = time / 1000;
-                  uint64_t millsec = time % 1000;
+            QJsonObject trade = a[i].toObject();
+            uint64_t id  = trade["id"].toDouble();
+            if(id != preLastTradeId)
+            {
+                uint64_t time =  trade["created-at"].toDouble();
+                uint64_t time_s = time / 1000;
+                uint64_t millsec = time % 1000;
 
-               QDateTime  t=  QDateTime::fromTime_t(time_s);
+                QDateTime  t=  QDateTime::fromTime_t(time_s);
 
 
-               if(!isPrintHeader)
-               {
-                   isPrintHeader = true;
-                   Logger << "Symbol,Dir,Price,Qty,Commison,Commison_Point,tradeID,date,time";
-               }
+                if(!isPrintHeader)
+                {
+                    isPrintHeader = true;
+                    Logger << "Symbol,Dir,Price,Qty,Commison,Commison_Point,tradeID,date,time";
+                }
 
-                  Logger << trade["symbol"].toString().toStdString()
-                           << "," << trade["type"].toString().toStdString()
-                           << ","<<trade["price"].toString().toDouble()
-                           << ","  <<  trade["filled-amount"].toString().toDouble()
-                           << ","   << trade["filled-fees"].toString().toDouble()
-                           << ","   << trade["filled-points"].toString().toDouble()
-                           << ","   << trade["id"].toInt()
-                        //   << "," << trade["created-at"].toVariant().toLongLong()
-                          << "," <<  t.toString("yyMMdd,hh:mm:ss").toStdString()
-                          << "." << millsec
+                Logger << trade["symbol"].toString().toStdString()
+                        << "," << trade["type"].toString().toStdString()
+                        << ","<<trade["price"].toString().toDouble()
+                        << ","  <<  trade["filled-amount"].toString().toDouble()
+                        << ","   << trade["filled-fees"].toString().toDouble()
+                        << ","   << trade["filled-points"].toString().toDouble()
+                        << ","   << trade["id"].toDouble()
+                           //   << "," << trade["created-at"].toVariant().toLongLong()
+                        << "," <<  t.toString("yyMMdd,hh:mm:ss").toStdString()
+                        << "." << millsec
 
-                              ;
-                   lastTradeId = id;
-               }
+                           ;
+                lastTradeId = id;
+            }
         }
 
         if(lastTradeId != 0 && preLastTradeId !=  lastTradeId)
@@ -248,7 +265,7 @@ void QueryDialog::handleTrade(QNetworkReply *r)
             para["symbol"] = querySymbol->text();
             para["start-date"] = dateStart->date().toString("yyyy-MM-dd");
             para["end-date"] = dateEnd->date().toString("yyyy-MM-dd");
-            para["states"] = "filled";
+           // para["states"] = "filled";
             para["size"] = "10";
             para["from"] = QString::number(lastTradeId);
             para["direct"] = "next";
@@ -258,10 +275,32 @@ void QueryDialog::handleTrade(QNetworkReply *r)
         }
         else
         {
-             statusLable->setText("Finish Trade Query" );
+            statusLable->setText("Finish Trade Query " + QString::number(lastTradeId) + " PreLast: "  + QString::number(preLastTradeId));
         }
 
         preLastTradeId = lastTradeId;
     }
 
+}
+
+void QueryDialog::handleAccount(QNetworkReply *query)
+{
+    QByteArray r = query->readAll();
+    statusLable->setText(r);
+
+    QJsonObject obj = getJson(r);
+    QJsonArray accounts = obj["data"].toArray();
+    for(int i = 0; i!= accounts.size(); ++i)
+    {
+        QJsonObject a = accounts[i].toObject();
+        int id = a["id"].toInt();
+        accountIDs.insert(id);
+    }
+
+}
+
+void QueryDialog::handleBalance(QNetworkReply *query)
+{
+    QByteArray r = query->readAll();
+    Logger << QJsonDocument::fromJson(r).toJson().toStdString();
 }
