@@ -29,8 +29,6 @@ public slots:
     void onClickQueryOrder();
     void onClickQueryAccount();
     void onClickQueryBalance();
-
-
 //    void onClientConnected();
 //    void onClientDisconnect();
 //    void onClientError(QAbstractSocket::SocketError);
@@ -40,8 +38,10 @@ private:
     void getTradeRequest(const std::map<QString, QString>& params);
     void handleOrder(QNetworkReply* orderquery);
     void handleTrade(QNetworkReply* orderquery);
+
     void handleAccount(QNetworkReply* query);
     void handleBalance(QNetworkReply* query);
+
 
 
 private:

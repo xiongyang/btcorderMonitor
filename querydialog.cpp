@@ -32,26 +32,15 @@ QueryDialog::QueryDialog(QWidget *parent, QString key ,  QString sec , QString s
 
     accountId = new QLineEdit("", this);
 
-
     accessKey = new QLineEdit(key, this);
     passKey = new QLineEdit(sec, this);
 
     statusLable = new QLabel(this);
     statusLable->setWordWrap(true);
     statusLable->setTextInteractionFlags(Qt::TextSelectableByMouse);
-
     QFormLayout *formLayout = new QFormLayout;
-
-
-
-    //    connect(clientConnection, &QTcpSocket::connected, this, &MonitorDialog::onClientConnected);
-    //    connect(clientConnection, &QTcpSocket::disconnected, this, &MonitorDialog::onClientDisconnect);
-    //    connect(clientConnection, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this, &MonitorDialog::onClientError);
-
-
     formLayout->addRow("accessKey",accessKey);
     formLayout->addRow("passKey",passKey);
-
     formLayout->addRow("symbol",querySymbol);
     formLayout->addRow("accountId",accountId);
     formLayout->addRow("start",dateStart);
@@ -66,19 +55,17 @@ QueryDialog::QueryDialog(QWidget *parent, QString key ,  QString sec , QString s
 
     QDialogButtonBox *buttonBox = new QDialogButtonBox;
     QPushButton* orderButton = new QPushButton("Order");
-    //connect(connectButton, &QPushButton::clicked, this, &MonitorDialog::onClickConnect);
-
     connect(orderButton, &QAbstractButton::clicked, this, &QueryDialog::onClickQueryOrder);
-
-    QPushButton* quitButton = new QPushButton("Quit");
-    connect(quitButton, &QAbstractButton::clicked, this, &QWidget::close);
 
     QPushButton* tradeButton = new QPushButton("Trade");
     connect(tradeButton, &QAbstractButton::clicked, this, &QueryDialog::onClickQueryTrade);
 
-
-    QPushButton* accountButton = new QPushButton("AccountID");
+    QPushButton* accountButton = new QPushButton("Account");
     connect(accountButton, &QAbstractButton::clicked, this, &QueryDialog::onClickQueryAccount);
+
+
+    QPushButton* quitButton = new QPushButton("Quit");
+    connect(quitButton, &QAbstractButton::clicked, this, &QWidget::close);
 
     QPushButton* balanceButton = new QPushButton("Balance");
     connect(balanceButton, &QAbstractButton::clicked, this, &QueryDialog::onClickQueryBalance);
@@ -129,9 +116,27 @@ void QueryDialog::onClickQueryOrder()
 
 void QueryDialog::onClickQueryAccount()
 {
-    auto reply = getRequest("/v1/account/accounts", std::map<QString,QString>());
-    connect(reply,  &QNetworkReply::finished, [=](){handleAccount(reply);} );
+
+     std::map<QString, QString> para;
+     QString query("/v1/account/accounts");
+     auto reply = getRequest(query,para);
+     connect(reply, &QNetworkReply::finished, [=](){handleAccount(reply);});
+//    std::map<QString, QString> para;
+//    para["symbol"] = querySymbol->text();
+//    para["start-date"] = dateStart->date().toString("yyyy-MM-dd");
+//    para["end-date"] = dateEnd->date().toString("yyyy-MM-dd");
+//    para["states"] = "filled";
+//    para["size"] = "10";
+
+//    QString query("/v1/order/orders/");
+//    auto reply = getRequest(query,para);
+//
 }
+//const std::string currentDateTime()
+//{
+//    auto reply = getRequest("/v1/account/accounts", std::map<QString,QString>());
+//    connect(reply,  &QNetworkReply::finished, [=](){handleAccount(reply);} );
+//}
 
 void QueryDialog::onClickQueryBalance()
 {
@@ -165,13 +170,10 @@ QNetworkReply* QueryDialog::getRequest(const QString &apimethod, const std::map<
     QString apiType = "GET\n";
 
     std::map<QString, QString> ps(params);
-
     ps["AccessKeyId"] = accessKey->text().trimmed();
     ps["SignatureMethod"] = "HmacSHA256";
     ps["SignatureVersion"] = "2";
     ps["Timestamp"] = currentDateTime().c_str();
-
-
 
     QString apikey;
     for(auto & each : ps)
@@ -189,15 +191,22 @@ QNetworkReply* QueryDialog::getRequest(const QString &apimethod, const std::map<
 
     QByteArray sign = QMessageAuthenticationCode::hash(calcString, passKey->text().trimmed().toLatin1(), QCryptographicHash::Sha256).toBase64();
     QByteArray signstr = sign.toPercentEncoding();
-    QString parms = apikey  + "&Signature=" + signstr;
 
 
+    QString result(apikey);
+    result.append("&Signature=");
+    result.append(signstr);
+
+    qDebug() << result;
 
 
     QString rs("https://api.huobi.pro");
-    rs =  rs + apimethod + "?" + parms;
+    rs =  rs + apimethod + "?" + result;
     QUrl url = rs;
     QNetworkRequest request(url);
+
+    qDebug() << "Send Request " << url;
+
 
 
     request.setRawHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36");
@@ -210,7 +219,10 @@ QNetworkReply* QueryDialog::getRequest(const QString &apimethod, const std::map<
 
 void QueryDialog::handleOrder(QNetworkReply *r)
 {
-    qDebug() << r->readAll();
+    QByteArray data =  r->readAll();
+    Logger << data.toStdString();
+    qDebug() << data;
+    statusLable->setText("Finish Order Query" );
 }
 
 void QueryDialog::handleTrade(QNetworkReply *r)
